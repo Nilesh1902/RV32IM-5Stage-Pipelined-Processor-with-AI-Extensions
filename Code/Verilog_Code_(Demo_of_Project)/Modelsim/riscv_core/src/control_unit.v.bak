@@ -1,0 +1,139 @@
+// ============================================================
+// Module: Control Unit
+// Function: Generates control signals based on opcode for RV32I instructions.
+// Inputs : opcode (7-bit from decode stage)
+// Outputs: Branch, MemRead, MemtoReg, ALUOp[1:0], MemWrite, ALUSrc, RegWrite
+// Notes  : Combinational logic. ALUOp: 00=ADD, 01=SUB, 10=R-type.
+//          For jumps, Branch is set to enable PC updates in top-level.
+//          Synthesis: No latches or registers.
+// ============================================================
+
+`timescale 1ns/1ps
+module control_unit(
+    output reg Branch,      // 1 for branch/jump instructions
+    output reg MemRead,     // 1 for load instructions
+    output reg MemtoReg,    // 1 to select memory data for reg write
+    output reg ALUOp1,      // ALU operation control (MSB)
+    output reg ALUOp0,      // ALU operation control (LSB)
+    output reg MemWrite,    // 1 for store instructions
+    output reg ALUSrc,      // 1 to select immediate for ALU
+    output reg RegWrite,    // 1 to enable register write
+    input wire [6:0] opcode // Instruction opcode
+);
+    
+    always @(*) begin
+        case (opcode)
+            7'b0110011: begin  // R-type: ADD, SUB, AND, OR, SLT
+                Branch   = 0;
+                MemRead  = 0;
+                MemtoReg = 0;
+                ALUOp1   = 1;
+                ALUOp0   = 0;
+                MemWrite = 0;
+                ALUSrc   = 0;
+                RegWrite = 1;
+            end
+            
+            7'b0010011: begin  // I-type: ADDI, ORI, ANDI, SLTI, SLTIU, shifts
+            Branch   = 0;
+            MemRead  = 0;
+            MemtoReg = 0;
+            // Use same ALUOp as R-type so alu_control uses funct3/funct7
+            ALUOp1   = 1;
+            ALUOp0   = 0;
+            MemWrite = 0;
+            ALUSrc   = 1;   // use immediate as B operand
+            RegWrite = 1;
+        end
+            
+            7'b0000011: begin  // Load (LW)
+                Branch   = 0;
+                MemRead  = 1;
+                MemtoReg = 1;
+                ALUOp1   = 0;
+                ALUOp0   = 0;
+                MemWrite = 0;
+                ALUSrc   = 1;
+                RegWrite = 1;
+            end
+            
+            7'b0100011: begin  // Store (SW)
+                Branch   = 0;
+                MemRead  = 0;
+                MemtoReg = 0;  // Don't care
+                ALUOp1   = 0;
+                ALUOp0   = 0;
+                MemWrite = 1;
+                ALUSrc   = 1;
+                RegWrite = 0;
+            end
+            
+            7'b1100011: begin  // Branch (BEQ, BNE, etc.)
+                Branch   = 1;
+                MemRead  = 0;
+                MemtoReg = 0;
+                ALUOp1   = 0;
+                ALUOp0   = 1;
+                MemWrite = 0;
+                ALUSrc   = 0;
+                RegWrite = 0;
+            end
+            
+            7'b1101111: begin  // JAL (Jump and Link)
+                Branch   = 1;  // Enable PC update
+                MemRead  = 0;
+                MemtoReg = 0;
+                ALUOp1   = 0;
+                ALUOp0   = 0;
+                MemWrite = 0;
+                ALUSrc   = 1;  // Use immediate for PC calc
+                RegWrite = 1;  // Write return address to rd
+            end
+            
+            7'b1100111: begin  // JALR (Jump and Link Register)
+                Branch   = 1;  // Enable PC update
+                MemRead  = 0;
+                MemtoReg = 0;
+                ALUOp1   = 0;
+                ALUOp0   = 0;
+                MemWrite = 0;
+                ALUSrc   = 1;  // Use immediate for PC calc
+                RegWrite = 1;  // Write return address to rd
+            end
+            
+            7'b0110111: begin  // LUI (Load Upper Immediate)
+                Branch   = 0;
+                MemRead  = 0;
+                MemtoReg = 0;
+                ALUOp1   = 0;
+                ALUOp0   = 0;
+                MemWrite = 0;
+                ALUSrc   = 1;  // Use immediate
+                RegWrite = 1;
+            end
+            
+            7'b0010111: begin  // AUIPC (Add Upper Immediate to PC)
+                Branch   = 0;
+                MemRead  = 0;
+                MemtoReg = 0;
+                ALUOp1   = 0;
+                ALUOp0   = 0;
+                MemWrite = 0;
+                ALUSrc   = 1;  // Use immediate
+                RegWrite = 1;
+            end
+            
+            default: begin  // Unsupported opcode
+                Branch   = 0;
+                MemRead  = 0;
+                MemtoReg = 0;
+                ALUOp1   = 0;
+                ALUOp0   = 0;
+                MemWrite = 0;
+                ALUSrc   = 0;
+                RegWrite = 0;
+            end
+        endcase
+    end
+    
+endmodule

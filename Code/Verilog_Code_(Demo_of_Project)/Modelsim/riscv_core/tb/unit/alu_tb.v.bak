@@ -1,0 +1,123 @@
+// ============================================================
+// Testbench: ALU
+// Tests: Operations, zero flag, and edge cases.
+// ============================================================
+
+`timescale 1ns/1ps
+module alu_tb;
+    wire [31:0] result;
+    wire zero;
+    reg [31:0] a, b;
+    reg [3:0] alu_control;
+    
+    // Instantiate alu module
+    alu a1(result, zero, alu_control, a, b);
+    
+    integer pass_count = 0;
+    integer fail_count = 0;
+    
+    initial begin
+        $display("---- ALU Testbench Start ----");
+        
+        a = 10; b = 5;
+        
+        // Test 1: ADD
+        alu_control = 4'b0010; #10;
+        if (result == 15 && zero == 0) begin
+            $display("? PASS: ADD %d + %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: ADD %d + %d = %d (expected 15), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 2: SUB
+        alu_control = 4'b0110; #10;
+        if (result == 5 && zero == 0) begin
+            $display("? PASS: SUB %d - %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: SUB %d - %d = %d (expected 5), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 3: AND
+        alu_control = 4'b0000; #10;
+        if (result == 0 && zero == 1) begin
+            $display("? PASS: AND %d & %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: AND %d & %d = %d (expected 0), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 4: OR
+        alu_control = 4'b0001; #10;
+        if (result == 15 && zero == 0) begin
+            $display("? PASS: OR %d | %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: OR %d | %d = %d (expected 15), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 5: SLT (signed)
+        alu_control = 4'b0111; #10;
+        if (result == 0 && zero == 1) begin
+            $display("? PASS: SLT (%d < %d) = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: SLT (%d < %d) = %d (expected 0), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 6: XOR
+        alu_control = 4'b0100; #10;
+        if (result == 15 && zero == 0) begin
+            $display("? PASS: XOR %d ^ %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: XOR %d ^ %d = %d (expected 15), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 7: SLL
+        alu_control = 4'b1000; b = 2; #10;
+        if (result == 40 && zero == 0) begin
+            $display("? PASS: SLL %d << %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: SLL %d << %d = %d (expected 40), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 8: SRL
+        alu_control = 4'b1001; #10;
+        if (result == 2 && zero == 0) begin
+            $display("? PASS: SRL %d >> %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: SRL %d >> %d = %d (expected 2), zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        // Test 9: Edge case - Zero result
+        a = 5; b = 5; alu_control = 4'b0110; #10;  // SUB
+        if (result == 0 && zero == 1) begin
+            $display("? PASS: Zero result %d - %d = %d, zero=%b", a, b, result, zero);
+            pass_count = pass_count + 1;
+        end else begin
+            $display("? FAIL: Zero result %d - %d = %d, zero=%b", a, b, result, zero);
+            fail_count = fail_count + 1;
+        end
+        
+        $display("---- Testbench Summary: Passed=%0d, Failed=%0d ----", pass_count, fail_count);
+        if (fail_count == 0) begin
+            $display("SUCCESS: All tests passed!");
+        end else begin
+            $display("ERROR: Some tests failed. Check logic.");
+        end
+        $display("---- ALU Testbench End ----");
+        $stop;
+    end
+endmodule

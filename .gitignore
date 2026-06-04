@@ -1,0 +1,16 @@
+# ModelSim
+*.wlf
+transcript
+modelsim.ini
+work/
+
+# Vivado
+.Xil/
+.runs/
+.cache/
+.hw/
+.ip_user_files/
+
+# Logs
+*.log
+*.jou

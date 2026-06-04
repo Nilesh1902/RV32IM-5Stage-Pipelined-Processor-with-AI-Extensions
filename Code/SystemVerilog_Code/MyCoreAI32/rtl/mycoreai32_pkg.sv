@@ -1,0 +1,110 @@
+// ============================================================
+// mycoreai32_pkg.sv
+// Patch set 1 package updates:
+//   - Add RV32M (M extension): MUL/DIV/REM family
+//   - Keep RV32I base opcodes/constants
+//   - Keep CUSTOM0 (VDOT4/VMAX4) constants used by your ai_unit path
+//   - Provide enums + helpers that your core decode/EX can use
+// ============================================================
+
+package mycoreai32_pkg;
+
+  // ----------------------------
+  // Base RV32I opcodes (7-bit)
+  // ----------------------------
+  localparam logic [6:0] OPCODE_LUI      = 7'b0110111;
+  localparam logic [6:0] OPCODE_AUIPC    = 7'b0010111;
+  localparam logic [6:0] OPCODE_JAL      = 7'b1101111;
+  localparam logic [6:0] OPCODE_JALR     = 7'b1100111;
+  localparam logic [6:0] OPCODE_BRANCH   = 7'b1100011;
+  localparam logic [6:0] OPCODE_LOAD     = 7'b0000011;
+  localparam logic [6:0] OPCODE_STORE    = 7'b0100011;
+  localparam logic [6:0] OPCODE_OP_IMM   = 7'b0010011;
+  localparam logic [6:0] OPCODE_OP       = 7'b0110011;
+
+  // Custom opcode space ("custom-0" primary opcode)
+  localparam logic [6:0] OPCODE_CUSTOM0  = 7'b0001011;
+
+  // ----------------------------
+  // Funct7 constants
+  // ----------------------------
+  // RV32M uses funct7 = 0000001 on OPCODE_OP
+  localparam logic [6:0] FUNCT7_MULDIV   = 7'b0000001;
+
+  // Your custom AI operations
+  localparam logic [6:0] FUNCT7_VDOT4    = 7'h01;
+  localparam logic [6:0] FUNCT7_VMAX4    = 7'h11;
+
+  // ----------------------------
+  // ALU / EX operation enum
+  // ----------------------------
+  typedef enum logic [5:0] {
+    // RV32I ALU ops
+    ALU_ADD    = 6'd0,
+    ALU_SUB    = 6'd1,
+    ALU_AND    = 6'd2,
+    ALU_OR     = 6'd3,
+    ALU_XOR    = 6'd4,
+    ALU_SLT    = 6'd5,
+    ALU_SLTU   = 6'd6,
+    ALU_SLL    = 6'd7,
+    ALU_SRL    = 6'd8,
+    ALU_SRA    = 6'd9,
+
+    // RV32M ops (M-extension)
+    ALU_MUL    = 6'd16,
+    ALU_MULH   = 6'd17,
+    ALU_MULHSU = 6'd18,
+    ALU_MULHU  = 6'd19,
+    ALU_DIV    = 6'd20,
+    ALU_DIVU   = 6'd21,
+    ALU_REM    = 6'd22,
+    ALU_REMU   = 6'd23
+  } alu_op_t;
+
+  // ----------------------------
+  // Helpers for decode
+  // ----------------------------
+
+  // True if instruction is OP + FUNCT7_MULDIV
+  function automatic logic is_rv32m(
+    input logic [6:0] opcode,
+    input logic [6:0] funct7
+  );
+    is_rv32m = (opcode == OPCODE_OP) && (funct7 == FUNCT7_MULDIV);
+  endfunction
+
+  // Map RV32M funct3 to alu_op_t
+  function automatic alu_op_t rv32m_aluop_from_funct3(
+    input logic [2:0] funct3
+  );
+    unique case (funct3)
+      3'b000: rv32m_aluop_from_funct3 = ALU_MUL;
+      3'b001: rv32m_aluop_from_funct3 = ALU_MULH;
+      3'b010: rv32m_aluop_from_funct3 = ALU_MULHSU;
+      3'b011: rv32m_aluop_from_funct3 = ALU_MULHU;
+      3'b100: rv32m_aluop_from_funct3 = ALU_DIV;
+      3'b101: rv32m_aluop_from_funct3 = ALU_DIVU;
+      3'b110: rv32m_aluop_from_funct3 = ALU_REM;
+      3'b111: rv32m_aluop_from_funct3 = ALU_REMU;
+      default: rv32m_aluop_from_funct3 = ALU_MUL;
+    endcase
+  endfunction
+
+  // ----------------------------
+  // Optional: EX stall handshake types (Patch set 1)
+  // ----------------------------
+  typedef struct packed {
+    logic        valid;      // request valid into M-unit
+    alu_op_t     op;         // one of ALU_MUL/DIV/REM...
+    logic [31:0] a;
+    logic [31:0] b;
+  } mreq_t;
+
+  typedef struct packed {
+    logic        ready;      // M-unit can accept request
+    logic        done;       // result valid this cycle
+    logic [31:0] result;
+  } mresp_t;
+
+endpackage

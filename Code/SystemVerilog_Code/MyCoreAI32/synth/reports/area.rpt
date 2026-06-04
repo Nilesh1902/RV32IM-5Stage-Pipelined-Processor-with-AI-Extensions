@@ -1,0 +1,30 @@
+ 
+****************************************
+Report : area
+Design : MyCoreAI32
+Version: T-2022.03-SP5
+Date   : Tue Feb  3 09:52:29 2026
+****************************************
+
+Library(s) Used:
+
+    saed32rvt_tt1p05v25c (File: /home/tools/pdks/synopsys/saed32rvt_tt1p05v25c.db)
+
+Number of ports:                         2949
+Number of nets:                         13993
+Number of cells:                         9559
+Number of combinational cells:           7593
+Number of sequential cells:              1877
+Number of macros/black boxes:               0
+Number of buf/inv:                       1606
+Number of references:                      40
+
+Combinational area:              19848.392377
+Buf/Inv area:                     2791.009509
+Noncombinational area:           13357.300584
+Macro/Black Box area:                0.000000
+Net Interconnect area:            9669.325393
+
+Total cell area:                 33205.692961
+Total area:                      42875.018354
+1

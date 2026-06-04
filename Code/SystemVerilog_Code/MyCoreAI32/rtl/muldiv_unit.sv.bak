@@ -1,0 +1,136 @@
+`timescale 1ns/1ps
+
+module muldiv_unit (
+  input  logic        clk,
+  input  logic        rst_n,
+
+  input  logic        req_valid,
+  input  logic [5:0]  req_op,     // alu_op_t encoded
+  input  logic [31:0] req_a,
+  input  logic [31:0] req_b,
+
+  output logic        resp_ready,
+  output logic        resp_done,
+  output logic [31:0] resp_result
+);
+
+  import mycoreai32_pkg::*;
+
+  typedef enum logic [1:0] { IDLE, BUSY, DONE } state_t;
+  state_t state;
+
+  logic [31:0] a_reg, b_reg;
+  logic [5:0]  op_reg;
+  logic [5:0]  div_cnt;
+
+  logic [31:0] result_reg;
+  logic [31:0] result_calc;
+
+  // ready/done/result
+  assign resp_ready  = (state == IDLE);
+  assign resp_done   = (state == DONE);
+  assign resp_result = result_reg;
+
+  // ------------------------------------------------------------
+  // Combinational result calculation (NO state update here)
+  // ------------------------------------------------------------
+  always_comb begin
+    result_calc = 32'd0;
+
+    unique case (op_reg)
+      // MUL family
+      ALU_MUL:    result_calc = $signed(a_reg) * $signed(b_reg);
+      ALU_MULH:   result_calc = ($signed(a_reg) * $signed(b_reg)) >>> 32;
+      ALU_MULHSU: result_calc = ($signed(a_reg) * $unsigned(b_reg)) >>> 32;
+      ALU_MULHU:  result_calc = ($unsigned(a_reg) * $unsigned(b_reg)) >>> 32;
+
+      // DIV family (RISC-V defined corner cases simplified here)
+      ALU_DIV: begin
+        if (b_reg == 0)                      result_calc = 32'hFFFF_FFFF;
+        else if ((a_reg == 32'h8000_0000) &&
+                 (b_reg == 32'hFFFF_FFFF))   result_calc = 32'h8000_0000; // overflow case
+        else                                  result_calc = $signed(a_reg) / $signed(b_reg);
+      end
+
+      ALU_DIVU: begin
+        if (b_reg == 0) result_calc = 32'hFFFF_FFFF;
+        else            result_calc = $unsigned(a_reg) / $unsigned(b_reg);
+      end
+
+      // REM family
+      ALU_REM: begin
+        if (b_reg == 0)                      result_calc = a_reg;
+        else if ((a_reg == 32'h8000_0000) &&
+                 (b_reg == 32'hFFFF_FFFF))   result_calc = 32'h0000_0000; // overflow case
+        else                                  result_calc = $signed(a_reg) % $signed(b_reg);
+      end
+
+      ALU_REMU: begin
+        if (b_reg == 0) result_calc = a_reg;
+        else            result_calc = $unsigned(a_reg) % $unsigned(b_reg);
+      end
+
+      default: result_calc = 32'd0;
+    endcase
+  end
+
+  // ------------------------------------------------------------
+  // Sequential control + result_reg update (ONLY HERE)
+  // ------------------------------------------------------------
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      state      <= IDLE;
+      a_reg      <= 32'd0;
+      b_reg      <= 32'd0;
+      op_reg     <= 6'd0;
+      div_cnt    <= 6'd0;
+      result_reg <= 32'd0;
+    end else begin
+      case (state)
+
+        IDLE: begin
+          if (req_valid) begin
+            a_reg  <= req_a;
+            b_reg  <= req_b;
+            op_reg <= req_op;
+
+            // MUL: complete immediately (capture result next cycle using updated regs)
+            if (req_op == ALU_MUL || req_op == ALU_MULH || req_op == ALU_MULHSU || req_op == ALU_MULHU) begin
+              // we can compute using req_a/req_b directly to avoid 1-cycle delay
+              unique case (req_op)
+                ALU_MUL:    result_reg <= $signed(req_a) * $signed(req_b);
+                ALU_MULH:   result_reg <= ($signed(req_a) * $signed(req_b)) >>> 32;
+                ALU_MULHSU: result_reg <= ($signed(req_a) * $unsigned(req_b)) >>> 32;
+                ALU_MULHU:  result_reg <= ($unsigned(req_a) * $unsigned(req_b)) >>> 32;
+                default:    result_reg <= 32'd0;
+              endcase
+              state <= DONE;
+            end else begin
+              // DIV/REM: start BUSY countdown
+              div_cnt <= 6'd32;
+              state   <= BUSY;
+            end
+          end
+        end
+
+        BUSY: begin
+          if (div_cnt != 0) begin
+            div_cnt <= div_cnt - 1'b1;
+          end else begin
+            // capture final result
+            result_reg <= result_calc;
+            state <= DONE;
+          end
+        end
+
+        DONE: begin
+          state <= IDLE;
+        end
+
+        default: state <= IDLE;
+
+      endcase
+    end
+  end
+
+endmodule

@@ -1,0 +1,340 @@
+`timescale 1ns/1ps
+// ============================================================
+// Module: Pipelined RISC-V Core (5-Stage, IP-style)
+// Stages: IF | ID | EX | MEM | WB
+// Features: Hazard Detection (Load-Use Stalls), Forwarding, Branch Resolution
+// External interfaces:
+//   - Instruction memory: imem_addr_o, imem_rdata_i
+//   - Data memory:        dmem_addr_o, dmem_wdata_o, dmem_rdata_i, dmem_we_o, dmem_re_o
+// ============================================================
+
+module riscv_core_pipelined (
+  input  wire        clk,
+  input  wire        reset,
+
+  // Instruction memory interface
+  output wire [31:0] imem_addr_o,
+  input  wire [31:0] imem_rdata_i,
+
+  // Data memory interface
+  output wire [31:0] dmem_addr_o,
+  output wire [31:0] dmem_wdata_o,
+  input  wire [31:0] dmem_rdata_i,
+  output wire        dmem_we_o,
+  output wire        dmem_re_o,
+
+  // Debug
+  output wire [31:0] pc_debug_o
+);
+
+  // --------------------------  
+  // IF Stage: PC + Instruction Memory
+  // --------------------------
+  wire [31:0] pc_if;
+  wire [31:0] next_pc_if;
+
+  pc pc_inst (
+    .pc_out (pc_if),
+    .next_pc(next_pc_if),
+    .clk    (clk),
+    .reset  (reset)
+  );
+
+  // External instruction memory interface
+  assign imem_addr_o = pc_if;
+  wire [31:0] instr_if = imem_rdata_i;
+  assign pc_debug_o = pc_if;
+
+  wire [31:0] pc_plus4_if = pc_if + 32'd4;
+
+  // Control signals
+  wire stall_if, flush_if;
+
+  // IF/ID Pipeline Register
+  reg [31:0] if_id_instr, if_id_pc_plus4;
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      if_id_instr    <= 32'b0;
+      if_id_pc_plus4 <= 32'b0;
+    end else if (flush_if) begin
+      if_id_instr    <= 32'b0;  // NOP
+      if_id_pc_plus4 <= 32'b0;
+    end else if (!stall_if) begin
+      if_id_instr    <= instr_if;
+      if_id_pc_plus4 <= pc_plus4_if;
+    end
+  end
+
+  // ID Stage signals (combinational)
+  wire [6:0] id_opcode;
+  wire [4:0] id_rd, id_rs1, id_rs2;
+  wire [2:0] id_funct3;
+  wire [6:0] id_funct7;
+  wire [31:0] id_imm;
+
+  decode_stage decode_inst (
+    .opcode(id_opcode),
+    .rd    (id_rd),
+    .funct3(id_funct3),
+    .rs1   (id_rs1),
+    .rs2   (id_rs2),
+    .funct7(id_funct7),
+    .instr (if_id_instr)
+  );
+
+  imm_gen immgen_inst (
+    .imm_out(id_imm),
+    .instr  (if_id_instr)
+  );
+
+  wire id_Branch, id_MemRead, id_MemtoReg, id_MemWrite, id_ALUSrc, id_RegWrite;
+  wire [1:0] id_ALUOp;
+
+  control_unit ctrl_inst (
+    .Branch   (id_Branch),
+    .MemRead  (id_MemRead),
+    .MemtoReg (id_MemtoReg),
+    .ALUOp    (id_ALUOp),
+    .MemWrite (id_MemWrite),
+    .ALUSrc   (id_ALUSrc),
+    .RegWrite (id_RegWrite),
+    .opcode   (id_opcode)
+  );
+
+  // Regfile
+  wire [31:0] id_rd1_data, id_rd2_data;
+  wire [31:0] regfile_wd;
+  wire [4:0]  regfile_rd;
+  wire        regfile_we;
+
+  regfile regfile_inst (
+    .rd1(id_rd1_data),
+    .rd2(id_rd2_data),
+    .wd (regfile_wd),
+    .rd (regfile_rd),
+    .rs1(id_rs1),
+    .rs2(id_rs2),
+    .we (regfile_we),
+    .clk(clk)
+  );
+
+  // ID/EX Pipeline Register
+  reg [31:0] id_ex_pc_plus4, id_ex_rd1, id_ex_rd2, id_ex_imm;
+  reg [4:0]  id_ex_rs1, id_ex_rs2, id_ex_rd;
+  reg [2:0]  id_ex_funct3;
+  reg [6:0]  id_ex_funct7;
+  reg [1:0]  id_ex_ALUOp;
+  reg        id_ex_ALUSrc, id_ex_RegWrite, id_ex_MemRead, id_ex_MemWrite,
+             id_ex_MemtoReg, id_ex_Branch;
+
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      id_ex_pc_plus4   <= 32'b0; id_ex_rd1 <= 32'b0; id_ex_rd2 <= 32'b0; id_ex_imm <= 32'b0;
+      id_ex_rs1        <= 5'b0;  id_ex_rs2 <= 5'b0;  id_ex_rd   <= 5'b0;
+      id_ex_funct3     <= 3'b0;  id_ex_funct7 <= 7'b0; id_ex_ALUOp <= 2'b0;
+      id_ex_ALUSrc     <= 1'b0;  id_ex_RegWrite <= 1'b0;
+      id_ex_MemRead    <= 1'b0;  id_ex_MemWrite <= 1'b0;
+      id_ex_MemtoReg   <= 1'b0;  id_ex_Branch   <= 1'b0;
+    end else if (flush_if) begin
+      id_ex_pc_plus4   <= 32'b0; id_ex_rd1 <= 32'b0; id_ex_rd2 <= 32'b0; id_ex_imm <= 32'b0;
+      id_ex_rs1        <= 5'b0;  id_ex_rs2 <= 5'b0;  id_ex_rd   <= 5'b0;
+      id_ex_funct3     <= 3'b0;  id_ex_funct7 <= 7'b0; id_ex_ALUOp <= 2'b0;
+      id_ex_ALUSrc     <= 1'b0;  id_ex_RegWrite <= 1'b0;
+      id_ex_MemRead    <= 1'b0;  id_ex_MemWrite <= 1'b0;
+      id_ex_MemtoReg   <= 1'b0;  id_ex_Branch   <= 1'b0;
+    end else if (!stall_if) begin
+      id_ex_pc_plus4   <= if_id_pc_plus4;
+      id_ex_rd1        <= id_rd1_data;
+      id_ex_rd2        <= id_rd2_data;
+      id_ex_imm        <= id_imm;
+      id_ex_rs1        <= id_rs1;
+      id_ex_rs2        <= id_rs2;
+      id_ex_rd         <= id_rd;
+      id_ex_funct3     <= id_funct3;
+      id_ex_funct7     <= id_funct7;
+      id_ex_ALUOp      <= id_ALUOp;
+      id_ex_ALUSrc     <= id_ALUSrc;
+      id_ex_RegWrite   <= id_RegWrite;
+      id_ex_MemRead    <= id_MemRead;
+      id_ex_MemWrite   <= id_MemWrite;
+      id_ex_MemtoReg   <= id_MemtoReg;
+      id_ex_Branch     <= id_Branch;
+    end
+  end
+
+  // --------------------------  
+  // EX Stage: ALU + Forwarding
+  // --------------------------
+  reg  [1:0] forwardA, forwardB;
+  wire [31:0] ex_mem_alu_result, mem_wb_wb_data;
+  reg  [31:0] ex_operand1, ex_operand2;
+  wire [31:0] ex_alu_operand2_pre;
+  wire [3:0]  ex_ALUCtrl;
+
+  alu_control alu_ctrl_inst (
+    .ALUCtrl(ex_ALUCtrl),
+    .ALUOp  (id_ex_ALUOp),
+    .funct3 (id_ex_funct3),
+    .funct7 (id_ex_funct7)
+  );
+
+  always @(*) begin
+    case (forwardA)
+      2'b00: ex_operand1 = id_ex_rd1;
+      2'b10: ex_operand1 = ex_mem_alu_result;
+      2'b01: ex_operand1 = mem_wb_wb_data;
+      default: ex_operand1 = id_ex_rd1;
+    endcase
+    case (forwardB)
+      2'b00: ex_operand2 = id_ex_rd2;
+      2'b10: ex_operand2 = ex_mem_alu_result;
+      2'b01: ex_operand2 = mem_wb_wb_data;
+      default: ex_operand2 = id_ex_rd2;
+    endcase
+  end
+
+  assign ex_alu_operand2_pre = id_ex_ALUSrc ? id_ex_imm : ex_operand2;
+
+  wire [31:0] ex_alu_result;
+  wire        ex_zero;
+
+  alu alu_inst (
+    .result     (ex_alu_result),
+    .zero       (ex_zero),
+    .alu_control(ex_ALUCtrl),
+    .a          (ex_operand1),
+    .b          (ex_alu_operand2_pre)
+  );
+
+  // EX/MEM Pipeline Register
+  reg [31:0] ex_mem_alu_result_reg;
+  reg        ex_mem_zero_reg;
+  reg [4:0]  ex_mem_rd_reg;
+  reg [31:0] ex_mem_reg_write_data;
+  reg        ex_mem_MemRead_reg, ex_mem_MemWrite_reg,
+             ex_mem_MemtoReg_reg, ex_mem_RegWrite_reg;
+
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      ex_mem_alu_result_reg <= 32'b0;
+      ex_mem_zero_reg       <= 1'b0;
+      ex_mem_rd_reg         <= 5'b0;
+      ex_mem_reg_write_data <= 32'b0;
+      ex_mem_MemRead_reg    <= 1'b0;
+      ex_mem_MemWrite_reg   <= 1'b0;
+      ex_mem_MemtoReg_reg   <= 1'b0;
+      ex_mem_RegWrite_reg   <= 1'b0;
+    end else begin
+      ex_mem_alu_result_reg <= ex_alu_result;
+      ex_mem_zero_reg       <= ex_zero;
+      ex_mem_rd_reg         <= id_ex_rd;
+      ex_mem_reg_write_data <= ex_operand2;
+      ex_mem_MemRead_reg    <= id_ex_MemRead;
+      ex_mem_MemWrite_reg   <= id_ex_MemWrite;
+      ex_mem_MemtoReg_reg   <= id_ex_MemtoReg;
+      ex_mem_RegWrite_reg   <= id_ex_RegWrite;
+    end
+  end
+
+  // --------------------------  
+  // MEM Stage: external Data Memory
+  // --------------------------
+  assign dmem_addr_o  = ex_mem_alu_result_reg;
+  assign dmem_wdata_o = ex_mem_reg_write_data;
+  assign dmem_we_o    = ex_mem_MemWrite_reg;
+  assign dmem_re_o    = ex_mem_MemRead_reg;
+
+  wire [31:0] mem_read_data_wire = dmem_rdata_i;
+
+  // MEM/WB Pipeline Register
+  reg [31:0] mem_wb_memread_reg, mem_wb_alu_result_reg;
+  reg [4:0]  mem_wb_rd_reg;
+  reg        mem_wb_MemtoReg_reg, mem_wb_RegWrite_reg;
+
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      mem_wb_memread_reg   <= 32'b0;
+      mem_wb_alu_result_reg<= 32'b0;
+      mem_wb_rd_reg        <= 5'b0;
+      mem_wb_MemtoReg_reg  <= 1'b0;
+      mem_wb_RegWrite_reg  <= 1'b0;
+    end else begin
+      mem_wb_memread_reg   <= mem_read_data_wire;
+      mem_wb_alu_result_reg<= ex_mem_alu_result_reg;
+      mem_wb_rd_reg        <= ex_mem_rd_reg;
+      mem_wb_MemtoReg_reg  <= ex_mem_MemtoReg_reg;
+      mem_wb_RegWrite_reg  <= ex_mem_RegWrite_reg;
+    end
+  end
+
+  // --------------------------  
+  // WB Stage: Writeback
+  // --------------------------
+  wire [31:0] wb_data_wire;
+
+  writeback_stage wb_stage_inst (
+    .wb_data   (wb_data_wire),
+    .mem_to_reg(mem_wb_MemtoReg_reg),
+    .mem_data  (mem_wb_memread_reg),
+    .alu_result(mem_wb_alu_result_reg)
+  );
+
+  assign regfile_rd = mem_wb_rd_reg;
+  assign regfile_wd = wb_data_wire;
+  assign regfile_we = mem_wb_RegWrite_reg;
+
+  // Forwarding Signals
+  assign ex_mem_alu_result = ex_mem_alu_result_reg;
+  assign mem_wb_wb_data    = wb_data_wire;
+
+  // --------------------------  
+  // Forwarding Unit
+  // --------------------------
+  always @(*) begin
+    forwardA = 2'b00;
+    forwardB = 2'b00;
+
+    if (ex_mem_RegWrite_reg && (ex_mem_rd_reg != 0) && (ex_mem_rd_reg == id_ex_rs1))
+      forwardA = 2'b10;
+    else if (mem_wb_RegWrite_reg && (mem_wb_rd_reg != 0) && (mem_wb_rd_reg == id_ex_rs1))
+      forwardA = 2'b01;
+
+    if (ex_mem_RegWrite_reg && (ex_mem_rd_reg != 0) && (ex_mem_rd_reg == id_ex_rs2))
+      forwardB = 2'b10;
+    else if (mem_wb_RegWrite_reg && (mem_wb_rd_reg != 0) && (mem_wb_rd_reg == id_ex_rs2))
+      forwardB = 2'b01;
+  end
+
+  // --------------------------  
+  // Branch Resolution
+  // --------------------------
+  reg branch_taken;
+  reg [31:0] branch_target;
+
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      branch_taken <= 1'b0;
+      branch_target<= 32'b0;
+    end else begin
+      if (id_ex_Branch && ex_zero) begin
+        branch_taken <= 1'b1;
+        branch_target<= id_ex_pc_plus4 + id_ex_imm;
+      end else begin
+        branch_taken <= 1'b0;
+      end
+    end
+  end
+
+  // --------------------------  
+  // Hazard Detection & Next PC Logic (Fixed)
+  // --------------------------
+  wire load_use_hazard = id_ex_MemRead && (id_ex_rd != 5'd0) && 
+                        ((id_ex_rd == id_rs1) || (id_ex_rd == id_rs2));
+
+  assign stall_if = load_use_hazard;
+  assign flush_if = branch_taken || load_use_hazard;
+
+  assign next_pc_if = stall_if ? pc_if : 
+                     (branch_taken ? branch_target : pc_plus4_if);
+
+endmodule

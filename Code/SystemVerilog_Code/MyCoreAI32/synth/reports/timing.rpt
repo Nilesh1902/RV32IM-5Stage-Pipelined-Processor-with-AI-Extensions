@@ -1,0 +1,119 @@
+ 
+****************************************
+Report : timing
+        -path full
+        -delay max
+        -max_paths 1
+Design : MyCoreAI32
+Version: T-2022.03-SP5
+Date   : Tue Feb  3 09:52:29 2026
+****************************************
+
+Operating Conditions: tt1p05v25c   Library: saed32rvt_tt1p05v25c
+Wire Load Model Mode: enclosed
+
+  Startpoint: u_m/mul_mcand_reg[0]
+              (rising edge-triggered flip-flop clocked by clk)
+  Endpoint: u_m/mul_acc_reg[63]
+            (rising edge-triggered flip-flop clocked by clk)
+  Path Group: clk
+  Path Type: max
+
+  Des/Clust/Port     Wire Load Model       Library
+  ------------------------------------------------
+  MyCoreAI32         35000                 saed32rvt_tt1p05v25c
+  muldiv_unit        8000                  saed32rvt_tt1p05v25c
+  muldiv_unit_DW01_add_0_DW01_add_5
+                     8000                  saed32rvt_tt1p05v25c
+
+  Point                                                   Incr       Path
+  --------------------------------------------------------------------------
+  clock clk (rise edge)                                   0.00       0.00
+  clock network delay (ideal)                             0.00       0.00
+  u_m/mul_mcand_reg[0]/CLK (DFFARX1)                      0.00       0.00 r
+  u_m/mul_mcand_reg[0]/Q (DFFARX1)                        0.10       0.10 r
+  u_m/add_204_S2/B[0] (muldiv_unit_DW01_add_0_DW01_add_5)
+                                                          0.00       0.10 r
+  u_m/add_204_S2/U2/Y (AND2X1)                            0.05       0.15 r
+  u_m/add_204_S2/U1_1/CO (FADDX1)                         0.09       0.24 r
+  u_m/add_204_S2/U1_2/CO (FADDX1)                         0.09       0.33 r
+  u_m/add_204_S2/U1_3/CO (FADDX1)                         0.09       0.41 r
+  u_m/add_204_S2/U1_4/CO (FADDX1)                         0.09       0.50 r
+  u_m/add_204_S2/U1_5/CO (FADDX1)                         0.09       0.59 r
+  u_m/add_204_S2/U1_6/CO (FADDX1)                         0.09       0.68 r
+  u_m/add_204_S2/U1_7/CO (FADDX1)                         0.09       0.77 r
+  u_m/add_204_S2/U1_8/CO (FADDX1)                         0.09       0.85 r
+  u_m/add_204_S2/U1_9/CO (FADDX1)                         0.09       0.94 r
+  u_m/add_204_S2/U1_10/CO (FADDX1)                        0.09       1.03 r
+  u_m/add_204_S2/U1_11/CO (FADDX1)                        0.09       1.12 r
+  u_m/add_204_S2/U1_12/CO (FADDX1)                        0.09       1.20 r
+  u_m/add_204_S2/U1_13/CO (FADDX1)                        0.09       1.29 r
+  u_m/add_204_S2/U1_14/CO (FADDX1)                        0.09       1.38 r
+  u_m/add_204_S2/U1_15/CO (FADDX1)                        0.09       1.47 r
+  u_m/add_204_S2/U1_16/CO (FADDX1)                        0.09       1.55 r
+  u_m/add_204_S2/U1_17/CO (FADDX1)                        0.09       1.64 r
+  u_m/add_204_S2/U1_18/CO (FADDX1)                        0.09       1.73 r
+  u_m/add_204_S2/U1_19/CO (FADDX1)                        0.09       1.82 r
+  u_m/add_204_S2/U1_20/CO (FADDX1)                        0.09       1.91 r
+  u_m/add_204_S2/U1_21/CO (FADDX1)                        0.09       1.99 r
+  u_m/add_204_S2/U1_22/CO (FADDX1)                        0.09       2.08 r
+  u_m/add_204_S2/U1_23/CO (FADDX1)                        0.09       2.17 r
+  u_m/add_204_S2/U1_24/CO (FADDX1)                        0.09       2.26 r
+  u_m/add_204_S2/U1_25/CO (FADDX1)                        0.09       2.34 r
+  u_m/add_204_S2/U1_26/CO (FADDX1)                        0.09       2.43 r
+  u_m/add_204_S2/U1_27/CO (FADDX1)                        0.09       2.52 r
+  u_m/add_204_S2/U1_28/CO (FADDX1)                        0.09       2.61 r
+  u_m/add_204_S2/U1_29/CO (FADDX1)                        0.09       2.69 r
+  u_m/add_204_S2/U1_30/CO (FADDX1)                        0.09       2.78 r
+  u_m/add_204_S2/U1_31/CO (FADDX1)                        0.09       2.87 r
+  u_m/add_204_S2/U1_32/CO (FADDX1)                        0.09       2.96 r
+  u_m/add_204_S2/U1_33/CO (FADDX1)                        0.09       3.05 r
+  u_m/add_204_S2/U1_34/CO (FADDX1)                        0.09       3.13 r
+  u_m/add_204_S2/U1_35/CO (FADDX1)                        0.09       3.22 r
+  u_m/add_204_S2/U1_36/CO (FADDX1)                        0.09       3.31 r
+  u_m/add_204_S2/U1_37/CO (FADDX1)                        0.09       3.40 r
+  u_m/add_204_S2/U1_38/CO (FADDX1)                        0.09       3.48 r
+  u_m/add_204_S2/U1_39/CO (FADDX1)                        0.09       3.57 r
+  u_m/add_204_S2/U1_40/CO (FADDX1)                        0.09       3.66 r
+  u_m/add_204_S2/U1_41/CO (FADDX1)                        0.09       3.75 r
+  u_m/add_204_S2/U1_42/CO (FADDX1)                        0.09       3.83 r
+  u_m/add_204_S2/U1_43/CO (FADDX1)                        0.09       3.92 r
+  u_m/add_204_S2/U1_44/CO (FADDX1)                        0.09       4.01 r
+  u_m/add_204_S2/U1_45/CO (FADDX1)                        0.09       4.10 r
+  u_m/add_204_S2/U1_46/CO (FADDX1)                        0.09       4.19 r
+  u_m/add_204_S2/U1_47/CO (FADDX1)                        0.09       4.27 r
+  u_m/add_204_S2/U1_48/CO (FADDX1)                        0.09       4.36 r
+  u_m/add_204_S2/U1_49/CO (FADDX1)                        0.09       4.45 r
+  u_m/add_204_S2/U1_50/CO (FADDX1)                        0.09       4.54 r
+  u_m/add_204_S2/U1_51/CO (FADDX1)                        0.09       4.62 r
+  u_m/add_204_S2/U1_52/CO (FADDX1)                        0.09       4.71 r
+  u_m/add_204_S2/U1_53/CO (FADDX1)                        0.09       4.80 r
+  u_m/add_204_S2/U1_54/CO (FADDX1)                        0.09       4.89 r
+  u_m/add_204_S2/U1_55/CO (FADDX1)                        0.09       4.97 r
+  u_m/add_204_S2/U1_56/CO (FADDX1)                        0.09       5.06 r
+  u_m/add_204_S2/U1_57/CO (FADDX1)                        0.09       5.15 r
+  u_m/add_204_S2/U1_58/CO (FADDX1)                        0.09       5.24 r
+  u_m/add_204_S2/U1_59/CO (FADDX1)                        0.09       5.32 r
+  u_m/add_204_S2/U1_60/CO (FADDX1)                        0.09       5.41 r
+  u_m/add_204_S2/U1_61/CO (FADDX1)                        0.09       5.50 r
+  u_m/add_204_S2/U1_62/CO (FADDX1)                        0.09       5.59 r
+  u_m/add_204_S2/U1_63/S (FADDX1)                         0.11       5.70 f
+  u_m/add_204_S2/SUM[63] (muldiv_unit_DW01_add_0_DW01_add_5)
+                                                          0.00       5.70 f
+  u_m/U707/Y (AO22X1)                                     0.04       5.74 f
+  u_m/mul_acc_reg[63]/D (DFFARX1)                         0.01       5.75 f
+  data arrival time                                                  5.75
+
+  clock clk (rise edge)                                  60.00      60.00
+  clock network delay (ideal)                             0.00      60.00
+  u_m/mul_acc_reg[63]/CLK (DFFARX1)                       0.00      60.00 r
+  library setup time                                     -0.03      59.97
+  data required time                                                59.97
+  --------------------------------------------------------------------------
+  data required time                                                59.97
+  data arrival time                                                 -5.75
+  --------------------------------------------------------------------------
+  slack (MET)                                                       54.22
+
+
+1
